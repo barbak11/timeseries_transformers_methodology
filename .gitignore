@@ -44,7 +44,9 @@ data/
 Zab/
 
 # Trained models, predictions, metrics, checkpoints
-artifacts/
+# Keep artifacts in git except model folders.
+artifacts/**/models/
+artifacts/**/models/**
 models/
 checkpoints/
 runs/
@@ -64,6 +66,10 @@ tb_logs/
 *.joblib
 *.parquet
 *.feather
+!artifacts/**/*.parquet
+!artifacts/**/*.json
+!artifacts/**/*.csv
+!artifacts/**/*.png
 
 # ------------------------------
 # Logs / temp
