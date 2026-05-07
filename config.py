@@ -22,6 +22,14 @@ PCR_BOOST_PARQUET = DISEASE_DIR / "pcr_snapshot_boosting.parquet"
 
 
 def artifact_dirs(spec_key: str) -> dict[str, Path]:
+    """Построить стандартные каталоги артефактов для специфики.
+
+    Args:
+        spec_key: Ключ специфики (например, `sparse`, `short`, `coldstart_2`).
+
+    Returns:
+        Словарь путей: base/models/predictions/metrics.
+    """
     root_name = ARTIFACT_ROOT_ALIASES.get(spec_key, spec_key)
     base = ARTIFACTS_ROOT / root_name
     return {
@@ -68,7 +76,7 @@ SHORT_CONFIG = {
     "SPEC_KEY": "short",
     "RETRAIN": True,
     "RUN_TRAFFIC_TASK": True,
-    "RUN_DISEASE_TASK": False,
+    "RUN_DISEASE_TASK": True,
     "PRINT_METRICS_TO_STDOUT": False,
     "SHORT_OPEN_DAYS_MIN": 7,
     "SHORT_OPEN_DAYS_MAX": 90,
@@ -143,7 +151,7 @@ COLDSTART_CONFIG = {
     "SPEC_KEY": "coldstart_2",
     "RETRAIN": True,
     "RUN_TRAFFIC_TASK": True,
-    "RUN_DISEASE_TASK": False,
+    "RUN_DISEASE_TASK": True,
     "PRINT_METRICS_TO_STDOUT": False,
     "SHORT_OPEN_DAYS_MIN": 7,
     "SHORT_OPEN_DAYS_MAX": 90,
@@ -187,9 +195,9 @@ COLDSTART_CONFIG = {
 
 SPARSE_CONFIG = {
     "SPEC_KEY": "sparse",
-    "DESEASE_SPEC_KEY": "desease",
+    "DISEASE_SPEC_KEY": "disease",
     "RUN_SPARSE_TASK": True,
-    "RUN_DESEASE_TASK": False,
+    "RUN_DISEASE_TASK": True,
     "LSTM_EPOCHS": 50,
     "PATCHTST_SEQ_LEN": 28,
     "PATCHTST_PATCH": 7,
@@ -209,7 +217,7 @@ SPARSE_CONFIG = {
 CORRELATED_CONFIG = {
     "SPEC_KEY": "correlated",
     "RETRAIN": True,
-    "ENABLE_TASK_TRAFFIC": False,
+    "ENABLE_TASK_TRAFFIC": True,
     "ENABLE_TASK_DISEASE": True,
     "VAL_DAYS_BEFORE_TEST": 90,
     "VAL_WEEKS_BEFORE_TEST": 12,
@@ -256,4 +264,42 @@ CORRELATED_CONFIG = {
     "MVT_PATIENCE": 7,
     "MVT_VAL_FRAC": 0.15,
     "MVT_ONECYCLE_PCT_START": 0.12,
+    "MVT_CONFIGS": (
+        {
+            "name": "MV-Transformer-compact",
+            "lookback": 84,
+            "horizon": 7,
+            "hidden": 64,
+            "heads_time": 4,
+            "heads_series": 4,
+            "n_temp_layers": 2,
+            "n_series_layers": 1,
+            "ff_dim": 128,
+            "dropout": 0.10,
+        },
+        {
+            "name": "MV-Transformer-base",
+            "lookback": 56,
+            "horizon": 7,
+            "hidden": 64,
+            "heads_time": 4,
+            "heads_series": 4,
+            "n_temp_layers": 2,
+            "n_series_layers": 2,
+            "ff_dim": 128,
+            "dropout": 0.10,
+        },
+        {
+            "name": "MV-Transformer-context",
+            "lookback": 56,
+            "horizon": 7,
+            "hidden": 128,
+            "heads_time": 4,
+            "heads_series": 4,
+            "n_temp_layers": 2,
+            "n_series_layers": 1,
+            "ff_dim": 256,
+            "dropout": 0.20,
+        },
+    ),
 }

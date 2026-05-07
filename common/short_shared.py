@@ -4,15 +4,25 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error
+from functions.metrics import rmse, wape
 
 
 def setup_dirs(models_dir: Path, preds_dir: Path, metrics_dir: Path) -> None:
+    """Создать каталоги для артефактов (models/predictions/metrics)."""
     for d in (models_dir, preds_dir, metrics_dir):
         d.mkdir(parents=True, exist_ok=True)
 
 
 def task_artifact_paths(artifacts_dir: Path, task_key: str) -> dict[str, Path]:
+    """Построить пути артефактов для подзадачи внутри специфики.
+
+    Args:
+        artifacts_dir: Корневой каталог специфики (например, `artifacts/short`).
+        task_key: Ключ подзадачи (например, `traffic` или `disease`).
+
+    Returns:
+        Словарь путей: base_dir/models_dir/preds_dir/metrics_dir.
+    """
     base = artifacts_dir / str(task_key)
     return {
         "base_dir": base,
@@ -23,26 +33,23 @@ def task_artifact_paths(artifacts_dir: Path, task_key: str) -> dict[str, Path]:
 
 
 def setup_task_dirs(paths: dict) -> None:
+    """Создать каталоги артефактов для подзадачи."""
     for d in (paths["models_dir"], paths["preds_dir"], paths["metrics_dir"]):
         d.mkdir(parents=True, exist_ok=True)
 
 
-def rmse(y_true, y_pred) -> float:
-    yt = np.asarray(y_true, dtype=float)
-    yp = np.asarray(y_pred, dtype=float)
-    return float(np.sqrt(mean_squared_error(yt, yp)))
-
-
-def wape(y_true, y_pred) -> float:
-    yt = np.asarray(y_true, dtype=float)
-    yp = np.asarray(y_pred, dtype=float)
-    denom = np.sum(np.abs(yt))
-    if denom == 0:
-        return float("nan")
-    return float(np.sum(np.abs(yt - yp)) / denom * 100)
-
-
 def compute_test_start_by_ratio(df, date_col="date_dt", train_ratio=0.70, val_ratio=0.15):
+    """Оценить границу теста как квантиль по календарным датам.
+
+    Args:
+        df: Таблица с датами.
+        date_col: Имя колонки с датой.
+        train_ratio: Доля train.
+        val_ratio: Доля val.
+
+    Returns:
+        Дата начала теста.
+    """
     dts = np.sort(pd.to_datetime(df[date_col]).dropna().unique())
     n = len(dts)
     if n < 10:
@@ -52,6 +59,16 @@ def compute_test_start_by_ratio(df, date_col="date_dt", train_ratio=0.70, val_ra
 
 
 def select_shortest_share_ids(train_df, share=0.10, id_col="rest_id"):
+    """Выбрать долю идентификаторов с самой короткой историей.
+
+    Args:
+        train_df: Train-таблица.
+        share: Доля рядов для отбора.
+        id_col: Колонка идентификатора ряда.
+
+    Returns:
+        Список id.
+    """
     lengths = train_df.groupby(id_col)["date_dt"].nunique().sort_values()
     if len(lengths) == 0:
         return []
@@ -60,6 +77,18 @@ def select_shortest_share_ids(train_df, share=0.10, id_col="rest_id"):
 
 
 def truncate_disease_train_random_weeks(train_df, short_ids, min_weeks=50, max_weeks=150, seed=42):
+    """Случайно усечь историю disease-рядов до диапазона недель.
+
+    Args:
+        train_df: Train-таблица.
+        short_ids: Идентификаторы рядов, которые нужно укорачивать.
+        min_weeks: Минимальная длина.
+        max_weeks: Максимальная длина.
+        seed: Seed для воспроизводимости.
+
+    Returns:
+        Усечённая train-таблица.
+    """
     rng = np.random.default_rng(seed)
     out = []
     short_set = set(int(x) for x in short_ids)
@@ -76,6 +105,14 @@ def truncate_disease_train_random_weeks(train_df, short_ids, min_weeks=50, max_w
 
 
 def coerce_year_week_to_datetime(s: pd.Series) -> pd.Series:
+    """Привести колонку вида year-week к datetime.
+
+    Args:
+        s: Серия с датами/строками.
+
+    Returns:
+        Серия datetime.
+    """
     x = s.copy()
     dt = pd.to_datetime(x, errors="coerce")
     mask = dt.isna() & x.notna()
@@ -92,6 +129,15 @@ def coerce_year_week_to_datetime(s: pd.Series) -> pd.Series:
 
 
 def rest_open_days_on_first_test_day(df, test_start):
+    """Посчитать open_days на первый день теста (с запасным поиском следующей даты).
+
+    Args:
+        df: Таблица со столбцами `rest_id`, `date_dt`, `open_days`.
+        test_start: Дата начала теста.
+
+    Returns:
+        DataFrame `rest_id` × `open_days`.
+    """
     ts = pd.Timestamp(test_start)
     on_day = df[df["date_dt"] == ts][["rest_id", "open_days"]].drop_duplicates("rest_id")
     if len(on_day) == len(df["rest_id"].unique()):
@@ -113,6 +159,16 @@ def rest_open_days_on_first_test_day(df, test_start):
 
 
 def select_short_rest_ids(open_days_df, min_open_days: int, max_open_days: int):
+    """Отобрать короткие ряды по условию на open_days.
+
+    Args:
+        open_days_df: Таблица с `rest_id`, `open_days`.
+        min_open_days: Нижняя граница (строго больше).
+        max_open_days: Верхняя граница (строго меньше).
+
+    Returns:
+        Список `rest_id`.
+    """
     mask = (open_days_df["open_days"] > min_open_days) & (
         open_days_df["open_days"] < max_open_days
     )
@@ -121,6 +177,15 @@ def select_short_rest_ids(open_days_df, min_open_days: int, max_open_days: int):
 
 
 def load_classic_split(df, test_start):
+    """Разделить классический датасет на train/test по дате.
+
+    Args:
+        df: Данные.
+        test_start: Дата начала теста.
+
+    Returns:
+        (train_df, test_df).
+    """
     df = df.sort_values(["rest_id", "date_dt"]).reset_index(drop=True)
     df["series_id"] = df["rest_id"].astype(str)
     train_df = df[df["date_dt"] < test_start].copy()
@@ -129,5 +194,14 @@ def load_classic_split(df, test_start):
 
 
 def drop_weather_from_classic(df, weather_cols):
+    """Удалить погодные признаки из таблицы (если они присутствуют).
+
+    Args:
+        df: Входная таблица.
+        weather_cols: Список погодных колонок.
+
+    Returns:
+        Таблица без погодных колонок.
+    """
     cols = [c for c in weather_cols if c in df.columns]
     return df.drop(columns=cols, errors="ignore")
